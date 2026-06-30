@@ -929,6 +929,17 @@ p {
   line-height: 1.7;
 }
 
+.explanation-actions {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+
+.explanation-actions small {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .result-panel {
   display: grid;
   place-items: center;

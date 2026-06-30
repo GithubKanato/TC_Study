@@ -6,6 +6,7 @@ import {
   ChevronRight,
   CircleHelp,
   ClipboardList,
+  Copy,
   FileText,
   Home,
   ListChecks,
@@ -51,6 +52,30 @@ function prepareQuizQuestion(question) {
     options: shuffledOptions.map((option) => option.text),
     answer: shuffledOptions.findIndex((option) => option.isCorrect),
   };
+}
+
+function buildAiReviewPrompt(question, selectedIndex) {
+  const choiceLines = question.options.map(
+    (option, optionIndex) =>
+      `${OPTION_LABELS[optionIndex] || String.fromCharCode(65 + optionIndex)}. ${option}`,
+  );
+
+  return [
+    '以下はTC検定3級の択一問題です。初学者向けに、やさしく具体的に解説してください。',
+    '次の順番で説明してください。',
+    '1. 正解と、その理由',
+    '2. 他の選択肢がなぜ不適切か',
+    '3. この問題で覚えるべきスタイルガイド上のポイント',
+    '4. 試験でひっかかりやすい注意点',
+    '',
+    `カテゴリ: ${question.category}`,
+    `問題文: ${question.prompt}`,
+    ...choiceLines,
+    '',
+    `私の解答: ${OPTION_LABELS[selectedIndex] || String.fromCharCode(65 + selectedIndex)}. ${question.options[selectedIndex]}`,
+    `正解: ${OPTION_LABELS[question.answer] || String.fromCharCode(65 + question.answer)}. ${question.options[question.answer]}`,
+    `アプリ内の解説: ${question.explanation}`,
+  ].join('\n');
 }
 
 const initialProgress = {
@@ -417,6 +442,7 @@ function QuizPage({ onFinish }) {
   const [selected, setSelected] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [recorded, setRecorded] = useState(false);
+  const [copiedQuestionId, setCopiedQuestionId] = useState(null);
 
   const quizQuestions = useMemo(() => {
     const pool = category === 'すべて' ? questions : questions.filter((q) => q.category === category);
@@ -456,6 +482,7 @@ function QuizPage({ onFinish }) {
   const next = () => {
     setIndex((currentIndex) => currentIndex + 1);
     setSelected(null);
+    setCopiedQuestionId(null);
   };
 
   const restart = () => {
@@ -464,6 +491,7 @@ function QuizPage({ onFinish }) {
     setSelected(null);
     setAnswers([]);
     setRecorded(false);
+    setCopiedQuestionId(null);
   };
 
   const changeCategory = (nextCategory) => {
@@ -473,6 +501,7 @@ function QuizPage({ onFinish }) {
     setSelected(null);
     setAnswers([]);
     setRecorded(false);
+    setCopiedQuestionId(null);
   };
 
   const changeQuestionCount = (nextQuestionCount) => {
@@ -482,6 +511,18 @@ function QuizPage({ onFinish }) {
     setSelected(null);
     setAnswers([]);
     setRecorded(false);
+    setCopiedQuestionId(null);
+  };
+
+  const copyAiPrompt = async () => {
+    const prompt = buildAiReviewPrompt(current, selected);
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopiedQuestionId(current.id);
+    } catch {
+      window.prompt('このプロンプトをコピーしてAIに貼り付けてください。', prompt);
+    }
   };
 
   return (
@@ -550,6 +591,13 @@ function QuizPage({ onFinish }) {
               <div className="explanation">
                 <strong>{selected === current.answer ? '正解です' : '見直しましょう'}</strong>
                 <p>{current.explanation}</p>
+                <div className="explanation-actions">
+                  <button className="secondary-button compact" onClick={copyAiPrompt}>
+                    <Copy size={18} />
+                    {copiedQuestionId === current.id ? 'プロンプトをコピー済み' : 'AI用プロンプトをコピー'}
+                  </button>
+                  <small>ChatGPTなどに貼ると、正解理由とひっかけポイントを深掘りできます。</small>
+                </div>
                 <button className="primary-button compact" onClick={next}>
                   {index + 1 >= quizQuestions.length ? '結果を見る' : '次の問題'}
                   <ChevronRight size={18} />
